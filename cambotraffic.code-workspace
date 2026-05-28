@@ -1,0 +1,27 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    // Paste content from settings.json here
+    "editor.formatOnSave": true,
+    "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/default/bin/python"
+  },
+  "launch": {
+    // Paste "configurations" and "compounds" from launch.json here
+    "configurations": [
+      {
+        "name": "Python: Debug pixi Modules",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${file}",
+        "console": "integratedTerminal",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/.pixi/envs/default/lib/python3.14/site-packages"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+[workspace]
+name = "cambotraffic"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = ">=3.14.5,<3.15"
+opencv = ">=4.13.0,<5"
+
+[pypi-dependencies]
+
+[tasks]
