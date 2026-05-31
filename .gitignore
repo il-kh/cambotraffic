@@ -52,6 +52,10 @@ coverage.xml
 # Documentation
 docs/
 *.xlsx
+*.docx
+*.pdf
+*.pptx
+*.csv
 
 # Media files
 *.jpg

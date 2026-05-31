@@ -1,4 +1,17 @@
 {
+  "extensions": {
+    "recommendations": [
+      "editorconfig.editorconfig",
+      "ms-python.python",
+      "ms-python.mypy-type-checker",
+      "ms-python.black-formatter",
+      "ms-python.flake8",
+      "ms-python.vscode-pylance",
+      "charliermarsh.ruff",
+      "jjjermiah.pixi-vscode",
+      "renan-r-santos.pixi-code"
+    ]
+  },
   "folders": [
     {
       "path": "."
@@ -7,7 +20,24 @@
   "settings": {
     // Paste content from settings.json here
     "editor.formatOnSave": true,
-    "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/default/bin/python"
+    "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/default/bin/python",
+    "flake8.importStrategy": "fromEnvironment",
+    "flake8.args": [
+      "--max-line-length",
+      "120"
+    ],
+    "ruff.importStrategy": "fromEnvironment",
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+    // Formatting
+    "black-formatter.importStrategy": "fromEnvironment",
+    "[python]": {
+      "editor.formatOnSave": true,
+      "editor.codeActionsOnSave": {
+        "source.organizeImports.ruff": "explicit",
+        "source.fixAll": "explicit"
+      },
+      "editor.defaultFormatter": "ms-python.black-formatter",
+    },
   },
   "launch": {
     // Paste "configurations" and "compounds" from launch.json here
