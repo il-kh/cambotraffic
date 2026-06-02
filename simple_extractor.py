@@ -16,9 +16,12 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+import helpers
+
+helpers.load_env_local()
 # --- CONFIGURATION ---
-INPUT_DIR = "./videos"
-OUTPUT_DIR = Path("./dataset")
+INPUT_DIR = helpers.require("INPUT_DIR_VIDEOS")
+OUTPUT_DIR = helpers.require("OUTPUT_DIR_DATASET")
 
 INTERVAL_SECONDS = 2.0  # Minimum gap between saved frames
 MIN_ACTIVITY = 3000  # Min foreground area (px²) to consider a frame "active"
@@ -133,7 +136,7 @@ def process_videos() -> None:
             due = frames_since_save >= interval_frames
 
             if active and due:
-                file_name = f"{video_file.stem}_T{int(timestamp * 1000)}ms.jpg"
+                file_name = f"{video_file.stem}_T{int(timestamp * 1000):08d}ms.jpg"
                 cv2.imwrite(str(output_path / file_name), frame)
                 _append_metadata_csv(
                     output_path,

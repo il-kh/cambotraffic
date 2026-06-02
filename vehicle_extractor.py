@@ -17,9 +17,12 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+import helpers
+
+helpers.load_env_local()
 # --- CONFIGURATION ---
-INPUT_DIR = "./videos"
-OUTPUT_DIR = Path("./dataset")
+INPUT_DIR = helpers.require("INPUT_DIR_VIDEOS")
+OUTPUT_DIR = helpers.require("OUTPUT_DIR_DATASET")
 
 SENSITIVITY = 3000  # Min contour area (px²) to register a vehicle
 COOLDOWN_SECONDS = 2.0  # Min seconds between keyframe batches
@@ -338,7 +341,7 @@ def save_vehicle_keyframes(
             continue
 
         ts = clamped_idx / fps
-        file_name = f"{video_path.stem}_T{int(ts * 1000)}ms.jpg"
+        file_name = f"{video_path.stem}_T{int(ts * 1000):08d}ms.jpg"
 
         cv2.imwrite(str(output_path / file_name), frame)
         metadata_rows.append(
