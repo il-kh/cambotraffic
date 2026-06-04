@@ -96,20 +96,21 @@ for traffic_file in selected_files:
     df = pl.read_csv(traffic_file, separator="|")
     file_rid = rrims_id_from_path(traffic_file)
 
-    # rrims_id found inside the SECTION column values of this file
-    section_rids = (
-        df["SECTION"].str.extract(r"^(\d{5,6})-").drop_nulls().unique().to_list()
-    )
-    mismatches = [rid for rid in section_rids if rid != file_rid]
-    if mismatches:
-        print(
-            f"WARNING: '{traffic_file.name}' — filename rrims_id is '{file_rid}' but "
-            f"SECTION column contains rrims_id(s) {mismatches}. "
-            f"Using filename value '{file_rid}'."
+    # rrims_id found inside the SECTION column values of this file, if SECTION column is present.
+    if "SECTION" in df.columns:
+        section_rids = (
+            df["SECTION"].str.extract(r"^(\d{5,6})-").drop_nulls().unique().to_list()
         )
+        mismatches = [rid for rid in section_rids if rid != file_rid]
+        if mismatches:
+            print(
+                f"WARNING: '{traffic_file.name}' — filename rrims_id is '{file_rid}' but "
+                f"SECTION column contains rrims_id(s) {mismatches}. "
+                f"Using filename value '{file_rid}'."
+            )
 
-    df = df.with_columns(pl.lit(file_rid).alias("rrims_id"))
-    frames.append(df)
+        df = df.with_columns(pl.lit(file_rid).alias("rrims_id"))
+        frames.append(df)
 
 if not frames:
     print("No traffic files found.")
