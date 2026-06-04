@@ -4,7 +4,7 @@ main.py — entry point for the traffic video keyframe extractor.
 Usage:
     python main.py                  # vehicle tracker (default)
     python main.py --mode vehicle   # same
-    python main.py --mode interval  # simple interval-based extractor
+    python main.py --mode interval  # simple interval-based extractor    python main.py --lighting day_sun
 """
 
 import argparse
@@ -30,6 +30,19 @@ def main() -> None:
         default="vehicle",
         help="Extraction strategy (default: vehicle)",
     )
+    parser.add_argument(
+        "--lighting",
+        choices=[
+            "day_sun",
+            "day_overcast",
+            "day_rain",
+            "dusk_dawn",
+            "night_dry",
+            "night_rain",
+        ],
+        default=None,
+        help="Lighting condition written into every metadata row (default: unknown)",
+    )
     args = parser.parse_args()
 
     if args.mode == "interval":
@@ -39,7 +52,7 @@ def main() -> None:
     else:
         import vehicle_extractor
 
-        vehicle_extractor.process_videos()
+        vehicle_extractor.process_videos(lighting=args.lighting or "unknown")
 
 
 if __name__ == "__main__":

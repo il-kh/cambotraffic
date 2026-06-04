@@ -58,11 +58,13 @@ _METADATA_FIELDS = (
 )
 
 
-def _append_metadata_csv(output_path: Path, rows: list[dict]) -> None:
-    """Append rows to metadata.csv, creating with header if needed."""
+def _append_metadata_csv(
+    output_path: Path, rows: list[dict], csv_name: str = "metadata.csv"
+) -> None:
+    """Append rows to the metadata CSV, creating with header if needed."""
     if not rows:
         return
-    csv_path = output_path / "metadata.csv"
+    csv_path = output_path / csv_name
     write_header = not csv_path.exists()
     with csv_path.open("a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=_METADATA_FIELDS)
@@ -81,8 +83,10 @@ def _foreground_area(fgmask: np.ndarray) -> float:
 def process_videos() -> None:
     input_path = Path(INPUT_DIR)
     input_path.mkdir(exist_ok=True)
-    output_path = Path(OUTPUT_DIR)
-    output_path.mkdir(exist_ok=True)
+    run_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = Path(OUTPUT_DIR) / run_ts
+    output_path.mkdir(parents=True, exist_ok=True)
+    csv_name = f"{run_ts}_metadata.csv"
 
     if VISUALIZE:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
@@ -150,6 +154,7 @@ def process_videos() -> None:
                             "lighting": "unknown",
                         }
                     ],
+                    csv_name,
                 )
                 frames_since_save = 0
                 saved += 1
@@ -172,7 +177,7 @@ def process_videos() -> None:
                 )
                 cv2.imshow(WINDOW_NAME, display)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
-                    skip_video = True
+                    skip_video = True  # noqa: F841
                     break
 
         cap.release()

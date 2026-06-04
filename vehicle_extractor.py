@@ -10,6 +10,7 @@ Run directly:  python vehicle_extractor.py
 Or via main:   python main.py --mode vehicle  (default)
 """
 
+import argparse
 import csv
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +26,7 @@ INPUT_DIR = helpers.require("INPUT_DIR_VIDEOS")
 OUTPUT_DIR = helpers.require("OUTPUT_DIR_DATASET")
 
 SENSITIVITY = 3000  # Min contour area (px²) to register a vehicle
+MIN_ACTIVITY = 1000  # Min foreground pixels in a saved frame (checked against the BG model at save time)
 COOLDOWN_SECONDS = 2.0  # Min seconds between keyframe batches
 VISUALIZE = True  # Show live preview while processing
 
@@ -34,7 +36,7 @@ VISUALIZE = True  # Show live preview while processing
 #   'left'  — camera faces left   (close-lane R→L enters RIGHT; exit edge = RIGHT)
 CAMERA_DIRECTION = "auto"
 
-EDGE_MARGIN = 80  # Pixels from the exit edge considered "hard cut-off"
+EDGE_MARGIN = 0  # Pixels from the exit edge considered "hard cut-off"
 DIRECTION_SAMPLE_FRAMES = 120
 VEHICLE_GONE_SECONDS = 0.5  # Seconds of no detection → vehicle has left
 
@@ -190,6 +192,20 @@ def largest_vehicle_contour(fgmask: np.ndarray):
     return best, area, tuple(cv2.boundingRect(best))
 
 
+def _foreground_activity(
+    frame: np.ndarray, fgbg: cv2.BackgroundSubtractorMOG2
+) -> float:
+    """
+    Apply the background model to *frame* without updating it (learningRate=0)
+    and return the number of foreground pixels after morphological cleanup.
+    Vehicles that have already left the scene produce near-zero activity.
+    """
+    mask = fgbg.apply(frame, learningRate=0)
+    clean = cv2.morphologyEx(mask, cv2.MORPH_OPEN, _MORPH_KERNEL)
+    clean = cv2.morphologyEx(clean, cv2.MORPH_CLOSE, _MORPH_KERNEL)
+    return float(np.count_nonzero(clean))
+
+
 def vehicle_is_cut_off(
     bbox: tuple[int, int, int, int], frame_w: int, exit_edge: str
 ) -> bool:
@@ -279,11 +295,13 @@ _METADATA_FIELDS = (
 )
 
 
-def _append_metadata_csv(output_path: Path, rows: list[dict]) -> None:
-    """Append image metadata rows to metadata.csv, creating the file with header if needed."""
+def _append_metadata_csv(
+    output_path: Path, rows: list[dict], csv_name: str = "metadata.csv"
+) -> None:
+    """Append image metadata rows to the metadata CSV, creating the file with header if needed."""
     if not rows:
         return
-    csv_path = output_path / "metadata.csv"
+    csv_path = output_path / csv_name
     write_header = not csv_path.exists()
     with csv_path.open("a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=_METADATA_FIELDS)
@@ -301,6 +319,9 @@ def save_vehicle_keyframes(
     video_path: Path,
     output_path: Path,
     total_frames: int,
+    fgbg: cv2.BackgroundSubtractorMOG2,
+    csv_name: str = "metadata.csv",
+    lighting: str = "unknown",
     approaching: bool = False,
 ) -> None:
     """
@@ -340,6 +361,14 @@ def save_vehicle_keyframes(
             print(f"    [{slot}] Cannot read frame {clamped_idx} — skipped.")
             continue
 
+        activity = _foreground_activity(frame, fgbg)
+        if activity < MIN_ACTIVITY:
+            print(
+                f"    [{slot:8s}] T={clamped_idx / fps:.1f}s  →  skipped"
+                f" (activity={int(activity)} < {MIN_ACTIVITY})."
+            )
+            continue
+
         ts = clamped_idx / fps
         file_name = f"{video_path.stem}_T{int(ts * 1000):08d}ms.jpg"
 
@@ -355,13 +384,13 @@ def save_vehicle_keyframes(
                 "timestamp_s": round(ts, 3),
                 "camera_dir": camera_dir,
                 "travel_dir": travel_dir,
-                "lighting": "unknown",
+                "lighting": lighting,
             }
         )
         print(f"    [{slot:8s}] T={ts:.1f}s  →  {file_name}")
 
     cap.set(cv2.CAP_PROP_POS_FRAMES, saved_pos)
-    _append_metadata_csv(output_path, metadata_rows)
+    _append_metadata_csv(output_path, metadata_rows, csv_name)
 
 
 # ---------------------------------------------------------------------------
@@ -369,11 +398,13 @@ def save_vehicle_keyframes(
 # ---------------------------------------------------------------------------
 
 
-def process_videos() -> None:
+def process_videos(lighting: str = "unknown") -> None:
     input_path = Path(INPUT_DIR)
     input_path.mkdir(exist_ok=True)
-    output_path = Path(OUTPUT_DIR)
-    output_path.mkdir(exist_ok=True)
+    run_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = Path(OUTPUT_DIR) / run_ts
+    output_path.mkdir(parents=True, exist_ok=True)
+    csv_name = f"{run_ts}_metadata.csv"
 
     if VISUALIZE:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
@@ -514,7 +545,7 @@ def process_videos() -> None:
                     print(
                         f"  Vehicle gone — peak T={best_frame_idx / fps:.1f}s "
                         f"(area={int(best_area)}, travel={travel_dir}, {lane_label}).  "
-                        f"Saving {slot_count} keyframes..."
+                        f"Saving up to {slot_count} keyframes..."
                     )
                     save_vehicle_keyframes(
                         cap,
@@ -525,6 +556,9 @@ def process_videos() -> None:
                         video_file,
                         output_path,
                         total_frames,
+                        fgbg=fgbg,
+                        csv_name=csv_name,
+                        lighting=lighting,
                         approaching=approaching,
                     )
                     best_frame_idx = 0
@@ -567,6 +601,9 @@ def process_videos() -> None:
                 video_file,
                 output_path,
                 total_frames,
+                fgbg=fgbg,
+                csv_name=csv_name,
+                lighting=lighting,
                 approaching=approaching,
             )
 
@@ -580,4 +617,12 @@ def process_videos() -> None:
 
 
 if __name__ == "__main__":
-    process_videos()
+    parser = argparse.ArgumentParser(description="Vehicle-tracking keyframe extractor")
+    parser.add_argument(
+        "--lighting",
+        choices=LIGHTING_CHOICES,
+        default=None,
+        help="Lighting condition for all saved frames (default: leave as 'unknown')",
+    )
+    args = parser.parse_args()
+    process_videos(lighting=args.lighting or "unknown")
